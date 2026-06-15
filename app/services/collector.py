@@ -1,6 +1,9 @@
 import asyncio
+import time
 from loguru import logger
 from app.services.football_api import FootballApiService
+from app.services.rules_engine import RulesEngine
+from app.services.discord_notifier import DiscordNotifier
 from app.database import SessionLocal
 from app.models import Match, Team, Statistic
 from datetime import datetime, timezone
@@ -8,9 +11,12 @@ from datetime import datetime, timezone
 class DataCollectorService:
     def __init__(self):
         self.api = FootballApiService()
+        self.rules_engine = RulesEngine()
+        self.notifier = DiscordNotifier()
+        self.alert_cooldowns = {}
         self.running = False
 
-    def _save_match_and_stats(self, db, match_data, stats_data):
+    async def _save_match_and_stats(self, db, match_data, stats_data):
         fixture = match_data.get("fixture", {})
         teams = match_data.get("teams", {})
         goals = match_data.get("goals", {})
@@ -84,11 +90,32 @@ class DataCollectorService:
 
             stat_record.shots_on_target = int(get_stat("Shots on Goal"))
             stat_record.corners = int(get_stat("Corner Kicks"))
-            stat_record.dangerous_attacks = int(get_stat("Dangerous attacks"))
+            stat_record.dangerous_attacks = int(get_stat("Dangerous Attacks"))
             stat_record.expected_goals = get_stat("expected_goals")
         
         db.commit()
         logger.info(f"Dados da partida {match.id} salvos no banco!")
+
+        # 4. Avaliar Regras e Enviar Alerta
+        estatisticas_recentes = db.query(Statistic).filter(Statistic.match_id == match.id).order_by(Statistic.id.desc()).limit(2).all()
+
+        for stat_record in estatisticas_recentes:
+            avaliacao = self.rules_engine.evaluate(match, stat_record)
+
+            if avaliacao["trigger"]:
+                agora = time.time()
+                ultimo_alerta = self.alert_cooldowns.get(match.id, 0)
+
+                if (agora - ultimo_alerta) > 600:
+                    logger.warning(f"🚨 ALERTA DISPARADO PARA O JOGO {match.id}! (Score: {avaliacao['score']})")
+                    self.alert_cooldowns[match.id] = agora
+
+                    asyncio.create_task(
+                        self.notifier.send_alert(match, stat_record, avaliacao["rules_fired"], avaliacao["score"])
+                    )
+                
+                else:
+                    logger.info(f"Jogo {match.id} avaliado como QUENTE, mas ainda está em cooldown de alertas.")
 
     async def collect_data(self):
         logger.info("Iniciando ciclo de coleta de dados...")
@@ -105,7 +132,7 @@ class DataCollectorService:
                 await asyncio.sleep(1)
                 
                 stats_data = await self.api.get_match_statistics(fixture_id)
-                self._save_match_and_stats(db, match_data, stats_data)
+                await self._save_match_and_stats(db, match_data, stats_data)
                 
         except Exception as e:
             logger.error(f"Erro no ciclo de coleta: {e}")
@@ -122,4 +149,4 @@ class DataCollectorService:
 
     async def stop(self):
         self.running = False
-        await self.api.close()
+        await self.api.client.aclose()

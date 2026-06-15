@@ -23,7 +23,8 @@ class FootballApiService:
 
      async def get_live_matches(self):
           try:
-               response = await self.client.get("/fixtures?live=all")
+               league_id = os.getenv("LEAGUE_ID", "1")
+               response = await self.client.get(f"/fixtures?live=all&league={league_id}")
                response.raise_for_status()
                data = response.json()
                logger.info(f"Busca de partidas ao vivo concluídas: {data.get('results', 0)} partidas encontradas.")
