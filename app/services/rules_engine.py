@@ -19,8 +19,8 @@ class RulesEngine:
             return {"trigger": False, "score": 0.0, "rules_fired": []}
 
         # Evita mandar alertas nos primeiros 15 minutos do jogo, pois as estatísticas ainda estão muito "frias"
-        # if match.minute < 15:
-        #     return {"trigger": False, "score": 0.0, "rules_fired": []}
+        if match.minute < 15:
+            return {"trigger": False, "score": 0.0, "rules_fired": []}
 
         total_score = 0.0
         rules_fired = []
@@ -56,8 +56,10 @@ class RulesEngine:
         return False, 0.0, ""
 
     def rule_momentum(self, match: Match, stats: Statistic):
-        """Regra 3: (MODIFICADA PARA TESTE DO DISCORD)"""
-        return True, 5.0, "🔧 TESTE DE CONEXÃO DISCORD"
+        """Regra 3: Ataques Perigosos >= 75"""
+        if stats.dangerous_attacks >= 75:
+            return True, 1.0, "Alto Momentum / Pressão"
+        return False, 0.0, ""
 
     def rule_first_half_pressure(self, match: Match, stats: Statistic):
         """Regra 4: Pressão no 1º Tempo (Min >= 35) com muitos chutes e escanteios"""
