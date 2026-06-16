@@ -67,9 +67,9 @@ class DataCollectorService:
             team_id = team_stats.get("team", {}).get("id")
             stats_list = team_stats.get("statistics", [])
             
-            # Função para buscar estatísticas na lista da API
+            # Função para buscar estatísticas na lista da API (Case-Insensitive)
             def get_stat(type_name):
-                item = next((s for s in stats_list if s.get("type") == type_name), None)
+                item = next((s for s in stats_list if str(s.get("type")).lower() == type_name.lower()), None)
                 if item and item.get("value") is not None:
                     try:
                         # Se for porcentagem ("50%"), removemos o '%'
