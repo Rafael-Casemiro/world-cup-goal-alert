@@ -9,8 +9,10 @@ from app.services.discord_notifier import DiscordNotifier
 def make_mock_match():
     home = MagicMock()
     home.name = "Brasil"
+    home.logo_url = "https://media.api-sports.io/football/teams/6.png"
     away = MagicMock()
     away.name = "Argentina"
+    away.logo_url = "https://media.api-sports.io/football/teams/26.png"
 
     match = MagicMock()
     match.id = 9999

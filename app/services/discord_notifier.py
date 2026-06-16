@@ -15,21 +15,46 @@ class DiscordNotifier:
             logger.warning("DISCORD_WEBHOOK_URL não configurada no .env. Alerta ignorado.")
             return
         
-        title = f"🔥 ALERTA DE JOGO QUENTE: {match.home_team.name} vs {match.away_team.name}"
+        # Cor dinâmica baseada no score da partida
+        color = 0xFF4500 # Laranja-avermelhado padrão
+        if score >= 5.0:
+            color = 0xFF0000 # Vermelho puro (Pegando fogo)
+        elif score < 3.0:
+            color = 0xFFA500 # Laranja mais suave
 
-        regras_formatadas = "\n".join([f"✅ {r}" for r in rules_fired])
+        # Monta a URL de busca no Google para o jogo
+        search_query = f"{match.home_team.name}+vs+{match.away_team.name}".replace(" ", "+")
+
+        total_gols = match.home_score + match.away_score
+        linha_gol = total_gols + 0.5
+        
+        sugestao_aposta = f"**+ {linha_gol} Gols na Partida**"
+        if match.minute <= 45:
+            sugestao_aposta = f"**+ {linha_gol} Gols no 1º Tempo (HT)**"
 
         embed = {
-            "title": title,
-            "color": 16711680,
+            "title": f"⚽ {match.home_team.name} vs {match.away_team.name}",
+            "url": f"https://www.google.com/search?q={search_query}",
+            "color": color,
+            "author": {
+                "name": "🔥 ALERTA DE JOGO QUENTE!",
+                "icon_url": "https://cdn-icons-png.flaticon.com/512/1165/1165187.png"
+            },
             "fields": [
-                {"name": "⏰ Minuto", "value": f"{match.minute}", "inline": True},
-                {"name": "⚽ Placar", "value": f"{match.home_score} - {match.away_score}", "inline": True},
-                {"name": "📊 Fator de Pressão", "value": f"chutes a Gol: {stats.shots_on_target}\nEscanteios: {stats.corners}\nAtaques Perigosos: {stats.dangerous_attacks}\nxG (Gols Esperados): {stats.expected_goals}", "inline": False},
-                {"name": "⚡ Regras Ativadas", "value": regras_formatadas, "inline": False},
-                {"name": "🏆 Score do Sistema", "value": f"{score:.2f} pontos", "inline": False}
-            ],
-            "footer": {"text": "World Cup Goal Alert System - Sprint 03"}
+                {"name": "⏰ Minuto", "value": f"**{match.minute}'**", "inline": True},
+                {"name": "🏆 Placar", "value": f"**{match.home_score} - {match.away_score}**", "inline": True},
+                {"name": "📈 Score do Sistema", "value": f"**{score:.2f} pts**", "inline": True},
+                
+                {"name": "───────────────", "value": "**📊 FATOR DE PRESSÃO**", "inline": False},
+                
+                {"name": "🎯 Chutes no Alvo", "value": f"` {stats.shots_on_target} `", "inline": True},
+                {"name": "🚩 Escanteios", "value": f"` {stats.corners} `", "inline": True},
+                {"name": "⚔️ Atq. Perigosos", "value": f"` {stats.dangerous_attacks} `", "inline": True},
+                {"name": "⚽ xG (Gols Esp.)", "value": f"` {stats.expected_goals:.2f} `", "inline": True},
+                
+                {"name": "───────────────", "value": "💡 **SUGESTÃO DE ENTRADA**", "inline": False},
+                {"name": "Mercado de Gols", "value": f"👉 Entrar em {sugestao_aposta}", "inline": True}
+            ]
         }
 
         payload = {"embeds": [embed]}
