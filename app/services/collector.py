@@ -2,7 +2,7 @@ import asyncio
 import time
 from loguru import logger
 from app.services.football_api import FootballApiService
-from app.services.rules_engine import RulesEngine
+from app.services.rules_engine import RulesEngine, PreviousStats
 from app.services.discord_notifier import DiscordNotifier
 from app.database import SessionLocal
 from app.models import Match, Team, Statistic, Alert
@@ -63,10 +63,12 @@ class DataCollectorService:
         if not stats_data:
             return
 
+        previous_stats_by_team = {}
+
         for team_stats in stats_data:
             team_id = team_stats.get("team", {}).get("id")
             stats_list = team_stats.get("statistics", [])
-            
+
             # Função para buscar estatísticas na lista da API (Case-Insensitive)
             def get_stat(type_name):
                 item = next((s for s in stats_list if str(s.get("type")).lower() == type_name.lower()), None)
@@ -84,7 +86,15 @@ class DataCollectorService:
                 Statistic.team_id == team_id
             ).first()
 
-            if not stat_record:
+            if stat_record:
+                # Guarda o valor do ciclo anterior antes de sobrescrever, para as regras de momentum
+                previous_stats_by_team[team_id] = PreviousStats(
+                    shots_on_target=stat_record.shots_on_target,
+                    corners=stat_record.corners,
+                    dangerous_attacks=stat_record.dangerous_attacks,
+                    expected_goals=stat_record.expected_goals,
+                )
+            else:
                 stat_record = Statistic(match_id=match.id, team_id=team_id)
                 db.add(stat_record)
 
@@ -100,7 +110,8 @@ class DataCollectorService:
         estatisticas_recentes = db.query(Statistic).filter(Statistic.match_id == match.id).order_by(Statistic.id.desc()).limit(2).all()
 
         for stat_record in estatisticas_recentes:
-            avaliacao = self.rules_engine.evaluate(match, stat_record)
+            previous_stats = previous_stats_by_team.get(stat_record.team_id)
+            avaliacao = self.rules_engine.evaluate(match, stat_record, previous_stats)
 
             if avaliacao["trigger"]:
                 agora = time.time()
