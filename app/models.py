@@ -1,5 +1,6 @@
+from typing import Optional
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime, timezone
 from app.database import Base
 
@@ -41,9 +42,12 @@ class Statistic(Base):
 
 class Alert(Base):
      __tablename__ = "alerts"
-     id = Column(Integer, primary_key=True, index=True)
-     match_id = Column(Integer, ForeignKey("matches.id"))
-     triggered_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-     rules_fired = Column(String)
-     score = Column(Float, default=0.0)
+     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+     match_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("matches.id"))
+     triggered_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+     rules_fired: Mapped[Optional[str]] = mapped_column(String)
+     score: Mapped[float] = mapped_column(Float, default=0.0)
      match = relationship("Match", back_populates="alerts")
+     success: Mapped[int] = mapped_column(Integer, default=0)  # 0 = Pendente, 1 = Green, -1 = Red
+     goal_minute: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Em qual minuto saiu o gol (se saiu)
+     alert_minute: Mapped[int] = mapped_column(Integer, default=0)  # Em qual minuto o alerta foi disparado

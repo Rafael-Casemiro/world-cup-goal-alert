@@ -5,7 +5,7 @@ from app.services.football_api import FootballApiService
 from app.services.rules_engine import RulesEngine
 from app.services.discord_notifier import DiscordNotifier
 from app.database import SessionLocal
-from app.models import Match, Team, Statistic
+from app.models import Match, Team, Statistic, Alert
 from datetime import datetime, timezone
 
 class DataCollectorService:
@@ -109,6 +109,14 @@ class DataCollectorService:
                 if (agora - ultimo_alerta) > 600:
                     logger.warning(f"🚨 ALERTA DISPARADO PARA O JOGO {match.id}! (Score: {avaliacao['score']})")
                     self.alert_cooldowns[match.id] = agora
+                    novo_alerta = Alert(
+                        match_id=match.id,
+                        rules_fired=",".join(avaliacao["rules_fired"]),
+                        score=avaliacao["score"],
+                        alert_minute=match.minute
+                    )
+                    db.add(novo_alerta)
+                    db.commit()
 
                     asyncio.create_task(
                         self.notifier.send_alert(match, stat_record, avaliacao["rules_fired"], avaliacao["score"])

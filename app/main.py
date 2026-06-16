@@ -5,16 +5,19 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Match
 from app.services.collector import DataCollectorService
+from app.services.validator import AlertValidator
 
 collector = DataCollectorService()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-     task = asyncio.create_task(collector.start_polling(interval_seconds=60))
+     task_coletor = asyncio.create_task(collector.start_polling(interval_seconds=300))
+     task_validador = asyncio.create_task(validator_loop())
      yield
 
      await collector.stop()
-     task.cancel()
+     task_coletor.cancel()
+     task_validador.cancel()
 
 app = FastAPI(title="World Cup Goal Alert API", lifespan=lifespan)
 
@@ -39,3 +42,10 @@ def get_live_matches_endpoint(db: Session = Depends(get_db)):
           })
      
      return {"live_matches": results, "count": len(results)}
+
+
+async def validator_loop():
+     validator = AlertValidator()
+     while True:
+          await validator.run_validation()
+          await asyncio.sleep(1800)

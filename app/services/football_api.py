@@ -49,5 +49,15 @@ class FootballApiService:
           except httpx.RequestError as e:
                logger.error(f"Erro de conexão ao buscar estatísticas da partida {fixture_id}: {e}")
                return []
-          
+     
+     async def get_match_details(self, fixture_id: int):
+          try:
+               response = await self.client.get(f"/fixtures?id={fixture_id}")
+               response.raise_for_status()
+               data = response.json()
+               responses = data.get("response", [])
+               return responses[0] if responses else {}
+          except Exception as e:
+               logger.error(f"Erro ao buscar detalhes da partida {fixture_id}: {e}")
+               return {}
 
