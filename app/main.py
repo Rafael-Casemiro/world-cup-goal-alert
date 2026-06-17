@@ -11,7 +11,7 @@ collector = DataCollectorService()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-     task_coletor = asyncio.create_task(collector.start_polling(interval_seconds=300))
+     task_coletor = asyncio.create_task(collector.start_polling(interval_seconds=600))
      task_validador = asyncio.create_task(validator_loop())
      yield
 
